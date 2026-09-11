@@ -1,0 +1,67 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Unzip project (RGxMenabung.zip diupload apa adanya, tanpa extract manual)
+        run: |
+          unzip -o RGxMenabung.zip -d extracted
+          echo "Isi hasil extract:"
+          find extracted -maxdepth 3
+
+      - name: Prepare www folder
+        run: |
+          mkdir -p www
+          SRC_DIR="extracted"
+          if [ -d "extracted/RGxMenabung" ]; then
+            SRC_DIR="extracted/RGxMenabung"
+          fi
+          cp -r "$SRC_DIR"/. www/
+          echo "Isi www/:"
+          find www -maxdepth 2
+
+      - name: Install Capacitor
+        run: |
+          npm init -y
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npm install @capacitor/local-notifications @capacitor/filesystem @capacitor/share
+
+      - name: Init Capacitor
+        run: npx cap init "RG Menabung" "com.reigamajesty.rgmenabung" --web-dir=www
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Sync
+        run: npx cap sync android
+
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rg-menabung-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
